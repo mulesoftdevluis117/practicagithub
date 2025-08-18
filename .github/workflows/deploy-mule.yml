@@ -10,7 +10,7 @@ jobs:
     timeout-minutes: 20
 
     steps:
-    - name: Checkout
+    - name: Checkout repository
       uses: actions/checkout@v3
 
     - name: Set up JDK 11
@@ -20,17 +20,20 @@ jobs:
         distribution: 'temurin'
         cache: 'maven'
 
-    - name: Build with Maven
+    - name: Build Mule Project
       run: |
         mvn clean install -B -e -V -s .github/settings.xml
         mvn package -DskipTests -s .github/settings.xml
         
-        # Verificación crítica del JAR
-        if [ ! -f "target/ejemplogithub-*-mule-application.jar" ]; then
+        # Verificación del JAR
+        JAR_FILE=$(ls target/*-mule-application.jar | head -n 1)
+        if [ -z "$JAR_FILE" ]; then
           echo "::error::JAR file not found!"
           ls -la target/
           exit 1
         fi
+        echo "JAR file found: $JAR_FILE"
+        echo "JAR_FILE=$JAR_FILE" >> $GITHUB_ENV
 
     - name: Get CloudHub Token
       id: get_token
@@ -42,7 +45,7 @@ jobs:
           -d "grant_type=client_credentials")
         
         TOKEN=$(echo "$RESPONSE" | jq -r '.access_token')
-        if [ -z "$TOKEN" ]; then
+        if [ -z "$TOKEN" ] || [ "$TOKEN" == "null" ]; then
           echo "::error::Token generation failed"
           echo "$RESPONSE"
           exit 1
@@ -53,16 +56,18 @@ jobs:
 
     - name: Deploy to CloudHub
       run: |
-        JAR_FILE=$(ls target/*-mule-application.jar)
-        echo "Deploying $JAR_FILE"
-        
+        echo "Deploying $JAR_FILE to CloudHub..."
         curl -X POST https://anypoint.mulesoft.com/cloudhub/api/v2/applications \
           -H "Authorization: Bearer ${{ env.TOKEN }}" \
           -H "X-ANYPNT-ORG-ID: ${{ secrets.ANYPOINT_ORG_ID }}" \
-          -F "file=@$JAR_FILE" \
+          -F "file=@${{ env.JAR_FILE }}" \
           -F "domain=ejemplogithub-$GITHUB_RUN_ID" \
           -F "runtime=4.4.0" \
           -F "region=us-east-1" \
           -F "workers=1" \
           -F "workerSize=0.1" \
           -F "monitoringEnabled=false"
+
+    - name: Show CloudHub App URL
+      run: |
+        echo "App deployed at: https://ejemplogithub-$GITHUB_RUN_ID.cloudhub.io"
