@@ -2,8 +2,16 @@
   <servers>
     <server>
       <id>anypoint-exchange-v3</id>
-      <username>${env.ANYPOINT_CLIENT_ID}</username>
-      <password>${env.ANYPOINT_CLIENT_SECRET}</password>
+      <username>${env.ANYPNT_USERNAME}</username>
+      <password>${env.ANYPNT_PASSWORD}</password>
     </server>
   </servers>
+
+  <mirrors>
+    <mirror>
+      <id>anypoint-exchange-v3</id>
+      <mirrorOf>*</mirrorOf>
+      <url>https://maven.anypoint.mulesoft.com/api/v3/maven</url>
+    </mirror>
+  </mirrors>
 </settings>
