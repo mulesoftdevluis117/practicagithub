@@ -19,29 +19,40 @@ jobs:
         uses: actions/setup-java@v3
         with:
           java-version: '11'
-          distribution: 'temurin'  # Esto es lo que faltaba
+          distribution: 'temurin'  # AdoptOpenJDK renombrado a Temurin
           cache: 'maven'
 
       # 3️⃣ Construir el proyecto Mule con Maven
       - name: Build Mule project
         run: mvn clean package -DmuleDeploy
 
-      # 4️⃣ Obtener token de acceso de Connected App
+      # 4️⃣ Obtener token de acceso de Connected App (opcional, para validación)
       - name: Get Access Token
         id: get_token
         run: |
           TOKEN=$(curl -s -X POST https://anypoint.mulesoft.com/accounts/api/v2/oauth2/token \
-            -d "client_id=${{ secrets.CLIENT_ID }}" \
-            -d "client_secret=${{ secrets.CLIENT_SECRET }}" \
+            -d "client_id=${{ secrets.ANYPOINT_CLIENT_ID }}" \
+            -d "client_secret=${{ secrets.ANYPOINT_CLIENT_SECRET }}" \
             -d "grant_type=client_credentials" | jq -r '.access_token')
           echo "TOKEN=$TOKEN" >> $GITHUB_ENV
 
-      # 5️⃣ Hacer deploy al CloudHub
-      - name: Deploy to CloudHub
+      # 5️⃣ Desplegar la aplicación Mule con Maven
+      - name: Build and Deploy with Maven
+        env:
+          ANYPOINT_CLIENT_ID: ${{ secrets.ANYPOINT_CLIENT_ID }}
+          ANYPOINT_CLIENT_SECRET: ${{ secrets.ANYPOINT_CLIENT_SECRET }}
+          ANYPOINT_ENVIRONMENT: Sandbox
+          ANYPOINT_BUSINESSGROUP: a7e624be-4fa2-429a-bddf-ed8a6b4b4491  # Reemplaza con tu ID de organización
+          ANYPOINT_TARGET: US East (Ohio)  # Reemplaza con tu región (ej. us-east-1)
+        run: mvn clean package deploy -s .github/settings.xml -DskipTests -Danypoint.clientId="${ANYPOINT_CLIENT_ID}" -Danypoint.clientSecret="${ANYPOINT_CLIENT_SECRET}" -Danypoint.environment="${ANYPOINT_ENVIRONMENT}" -Danypoint.businessGroup="${ANYPOINT_BUSINESSGROUP}" -Danypoint.target="${ANYPOINT_TARGET}"
+
+      # (Opcional) Despliegue alternativo con cURL si Maven falla
+      - name: Deploy to CloudHub (Fallback)
+        if: failure()
         run: |
           curl -X POST https://anypoint.mulesoft.com/cloudhub/api/v2/applications \
-            -H "Authorization: Bearer $TOKEN" \
+            -H "Authorization: Bearer ${{ env.TOKEN }}" \
             -F "file=@target/*.jar" \
-            -F "domain=practicagithub" \
-            -F "workers=1" \
+            -F "domain=ejemplogithub"  # Ajusta el domain a tu app name
+            -F "workers=1"
             -F "region=us-east-1"
