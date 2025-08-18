@@ -1,136 +1,68 @@
-name: Deploy Mule App to CloudHub
+name: Deploy Mule App
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
 
     steps:
-      # 1️⃣ Clonar repositorio
-      - name: Checkout code
-        uses: actions/checkout@v3
+    - name: Checkout
+      uses: actions/checkout@v3
 
-      # 2️⃣ Configurar JDK 11
-      - name: Set up JDK 11
-        uses: actions/setup-java@v3
-        with:
-          java-version: '11'
-          distribution: 'temurin'
-          cache: 'maven'
+    - name: Set up JDK 11
+      uses: actions/setup-java@v3
+      with:
+        java-version: '11'
+        distribution: 'temurin'
+        cache: 'maven'
 
-      # 3️⃣ Construir proyecto Mule
-      - name: Build Mule Application
-        env:
-          ANYPOINT_USERNAME: ${{ secrets.ANYPOINT_USERNAME }}
-          ANYPOINT_PASSWORD: ${{ secrets.ANYPOINT_PASSWORD }}
-        run: |
-          mvn clean install -s .github/settings.xml -e -X
-          mvn package -DskipTests -s .github/settings.xml
+    - name: Build with Maven
+      run: |
+        mvn clean install -B -e -V -s .github/settings.xml
+        mvn package -DskipTests -s .github/settings.xml
+        
+        # Verificación crítica del JAR
+        if [ ! -f "target/ejemplogithub-*-mule-application.jar" ]; then
+          echo "::error::JAR file not found!"
+          ls -la target/
+          exit 1
+        fi
 
-      # 4️⃣ Verificar archivo generado
-      - name: Verify JAR File
-        id: verify_jar
-        run: |
-          if [ ! -f "target/ejemplogithub-1.0.0-SNAPSHOT-mule-application.jar" ]; then
-            echo "::error::El archivo JAR no se generó correctamente"
-            ls -la target/
-            exit 1
-          fi
-          echo "JAR_FILE=target/ejemplogithub-1.0.0-SNAPSHOT-mule-application.jar" >> $GITHUB_ENV
+    - name: Get CloudHub Token
+      id: get_token
+      run: |
+        RESPONSE=$(curl -s -X POST https://anypoint.mulesoft.com/accounts/api/v2/oauth2/token \
+          -H "Content-Type: application/x-www-form-urlencoded" \
+          -d "client_id=${{ secrets.ANYPOINT_CLIENT_ID }}" \
+          -d "client_secret=${{ secrets.ANYPOINT_CLIENT_SECRET }}" \
+          -d "grant_type=client_credentials")
+        
+        TOKEN=$(echo "$RESPONSE" | jq -r '.access_token')
+        if [ -z "$TOKEN" ]; then
+          echo "::error::Token generation failed"
+          echo "$RESPONSE"
+          exit 1
+        fi
+        
+        echo "TOKEN=$TOKEN" >> $GITHUB_ENV
+        echo "::add-mask::$TOKEN"
 
-      # 5️⃣ Autenticación en Anypoint
-      - name: Authenticate with Anypoint Platform
-        id: auth
-        run: |
-          RESPONSE=$(curl -s -X POST https://anypoint.mulesoft.com/accounts/api/v2/oauth2/token \
-            -H "Content-Type: application/x-www-form-urlencoded" \
-            -d "client_id=${{ secrets.ANYPOINT_CLIENT_ID }}" \
-            -d "client_secret=${{ secrets.ANYPOINT_CLIENT_SECRET }}" \
-            -d "grant_type=client_credentials")
-
-          if [ -z "$RESPONSE" ]; then
-            echo "::error::Empty response from auth endpoint"
-            exit 1
-          fi
-
-          TOKEN=$(echo $RESPONSE | jq -r '.access_token')
-          if [ -z "$TOKEN" ] || [ "$TOKEN" = "null" ]; then
-            echo "::error::Failed to extract token. Full response:"
-            echo "$RESPONSE"
-            exit 1
-          fi
-
-          echo "TOKEN=$TOKEN" >> $GITHUB_ENV
-          echo "::add-mask::$TOKEN"
-          echo "Authentication successful"
-
-      # 6️⃣ Despliegue principal con Maven
-      - name: Deploy with Maven
-        env:
-          ANYPOINT_CLIENT_ID: ${{ secrets.ANYPOINT_CLIENT_ID }}
-          ANYPOINT_CLIENT_SECRET: ${{ secrets.ANYPOINT_CLIENT_SECRET }}
-          ANYPOINT_ENVIRONMENT: Sandbox
-          ANYPOINT_BUSINESSGROUP: a7e624be-4fa2-429a-bddf-ed8a6b4b4491
-          ANYPOINT_TARGET: US East (Ohio)
-        run: |
-          mvn deploy -DskipTests -s .github/settings.xml \
-            -Danypoint.clientId="$ANYPOINT_CLIENT_ID" \
-            -Danypoint.clientSecret="$ANYPOINT_CLIENT_SECRET" \
-            -Danypoint.environment="$ANYPOINT_ENVIRONMENT" \
-            -Danypoint.businessGroup="$ANYPOINT_BUSINESSGROUP" \
-            -Danypoint.target="$ANYPOINT_TARGET"
-
-      # 7️⃣ Despliegue alternativo con cURL
-      - name: Fallback CloudHub Deployment
-        if: failure()
-        env:
-          TOKEN: ${{ env.TOKEN }}
-          JAR_FILE: ${{ env.JAR_FILE }}
-        run: |
-          echo "=== Starting Fallback Deployment ==="
-          echo "Using JAR file: $JAR_FILE"
-          
-          # Verificar que el archivo existe
-          if [ ! -f "$JAR_FILE" ]; then
-            echo "::error::JAR file not found at $JAR_FILE"
-            exit 1
-          fi
-          
-          # Verificar tamaño del archivo
-          FILE_SIZE=$(stat -c%s "$JAR_FILE")
-          if [ "$FILE_SIZE" -lt 1000000 ]; then
-            echo "::warning::JAR file seems too small ($FILE_SIZE bytes)"
-          fi
-          
-          # Realizar despliegue
-          RESPONSE=$(curl -v -X POST https://anypoint.mulesoft.com/cloudhub/api/v2/applications \
-            -H "Authorization: Bearer $TOKEN" \
-            -H "X-ANYPNT-ENV-ID: ${{ secrets.ANYPOINT_ENVIRONMENT_ID }}" \
-            -H "X-ANYPNT-ORG-ID: a7e624be-4fa2-429a-bddf-ed8a6b4b4491" \
-            -F "file=@$JAR_FILE" \
-            -F "domain=ejemplogithub" \
-            -F "workers=1" \
-            -F "workerSize=.1" \
-            -F "runtime=4.4.0" \
-            -F "region=us-east-1" \
-            -F "monitoringEnabled=true" \
-            -w "\nHTTP_STATUS:%{http_code}")
-            
-          # Extraer el código de estado HTTP
-          HTTP_STATUS=$(echo "$RESPONSE" | grep 'HTTP_STATUS:' | cut -d':' -f2)
-          echo "HTTP Status: $HTTP_STATUS"
-          
-          if [ "$HTTP_STATUS" -ne 200 ] && [ "$HTTP_STATUS" -ne 202 ]; then
-            echo "::error::Deployment failed with status $HTTP_STATUS"
-            echo "Full response:"
-            echo "$RESPONSE"
-            exit 1
-          fi
-          
-          echo "::notice::Deployment initiated successfully"
-          echo "Response: $RESPONSE"
+    - name: Deploy to CloudHub
+      run: |
+        JAR_FILE=$(ls target/*-mule-application.jar)
+        echo "Deploying $JAR_FILE"
+        
+        curl -X POST https://anypoint.mulesoft.com/cloudhub/api/v2/applications \
+          -H "Authorization: Bearer ${{ env.TOKEN }}" \
+          -H "X-ANYPNT-ORG-ID: ${{ secrets.ANYPOINT_ORG_ID }}" \
+          -F "file=@$JAR_FILE" \
+          -F "domain=ejemplogithub-$GITHUB_RUN_ID" \
+          -F "runtime=4.4.0" \
+          -F "region=us-east-1" \
+          -F "workers=1" \
+          -F "workerSize=0.1" \
+          -F "monitoringEnabled=false"
