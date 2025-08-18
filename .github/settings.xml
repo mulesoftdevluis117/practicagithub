@@ -6,38 +6,4 @@
       <password>${env.ANYPOINT_CLIENT_SECRET}</password>
     </server>
   </servers>
-  <profiles>
-    <profile>
-      <id>anypoint-exchange</id>
-      <repositories>
-        <repository>
-          <id>anypoint-exchange-v3</id>
-          <url>https://maven.anypoint.mulesoft.com/api/v3/maven</url>
-          <layout>default</layout>
-          <releases>
-            <enabled>true</enabled>
-          </releases>
-          <snapshots>
-            <enabled>false</enabled>
-          </snapshots>
-        </repository>
-      </repositories>
-      <pluginRepositories>
-        <pluginRepository>
-          <id>anypoint-exchange-v3</id>
-          <url>https://maven.anypoint.mulesoft.com/api/v3/maven</url>
-          <layout>default</layout>
-          <releases>
-            <enabled>true</enabled>
-          </releases>
-          <snapshots>
-            <enabled>false</enabled>
-          </snapshots>
-        </pluginRepository>
-      </pluginRepositories>
-    </profile>
-  </profiles>
-  <activeProfiles>
-    <activeProfile>anypoint-exchange</activeProfile>
-  </activeProfiles>
 </settings>
