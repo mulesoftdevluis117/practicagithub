@@ -55,4 +55,4 @@ jobs:
             -F "file=@target/*.jar" \
             -F "domain=ejemplogithub"  # Ajusta el domain a tu app name
             -F "workers=1"
-            -F "region=us-east-1"
+            -F "region=US East (Ohio)"
