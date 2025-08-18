@@ -42,17 +42,17 @@ jobs:
           ANYPOINT_CLIENT_ID: ${{ secrets.ANYPOINT_CLIENT_ID }}
           ANYPOINT_CLIENT_SECRET: ${{ secrets.ANYPOINT_CLIENT_SECRET }}
           ANYPOINT_ENVIRONMENT: Sandbox
-          ANYPOINT_BUSINESSGROUP: a7e624be-4fa2-429a-bddf-ed8a6b4b4491  # Reemplaza con tu ID de organización
-          ANYPOINT_TARGET: US East (Ohio)  # Reemplaza con tu región (ej. us-east-1)
+          ANYPOINT_BUSINESSGROUP: a7e624be-4fa2-429a-bddf-ed8a6b4b4491  # Reemplaza con tu ID de organización si es diferente
+          ANYPOINT_TARGET: US East (Ohio)  # Región legible para Maven
         run: mvn clean package deploy -s .github/settings.xml -DskipTests -Danypoint.clientId="${ANYPOINT_CLIENT_ID}" -Danypoint.clientSecret="${ANYPOINT_CLIENT_SECRET}" -Danypoint.environment="${ANYPOINT_ENVIRONMENT}" -Danypoint.businessGroup="${ANYPOINT_BUSINESSGROUP}" -Danypoint.target="${ANYPOINT_TARGET}"
 
-      # (Opcional) Despliegue alternativo con cURL si Maven falla
+      # 6️⃣ Despliegue alternativo con cURL si Maven falla
       - name: Deploy to CloudHub (Fallback)
         if: failure()
         run: |
           curl -X POST https://anypoint.mulesoft.com/cloudhub/api/v2/applications \
             -H "Authorization: Bearer ${{ env.TOKEN }}" \
-            -F "file=@target/*.jar" \
-            -F "domain=ejemplogithub"  # Ajusta el domain a tu app name
-            -F "workers=1"
-            -F "region=US East (Ohio)"
+            -F "file=@target/ejemplogithub-1.0.0-SNAPSHOT.jar" \
+            -F "domain=ejemplogithub" \
+            -F "workers=1" \
+            -F "region=us-east-1"  # Código de región para la API de CloudHub
