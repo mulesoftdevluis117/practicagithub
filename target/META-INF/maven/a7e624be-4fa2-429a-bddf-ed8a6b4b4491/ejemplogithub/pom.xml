@@ -4,7 +4,6 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <!-- Tu orgId de Anypoint -->
     <groupId>a7e624be-4fa2-429a-bddf-ed8a6b4b4491</groupId>
     <artifactId>ejemplogithub</artifactId>
     <version>1.0.0-SNAPSHOT</version>
@@ -16,34 +15,22 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <app.runtime>4.4.0</app.runtime>
-        <mule.maven.plugin.version>3.8.1</mule.maven.plugin.version>
+        <!-- Versión VERIFICADA como disponible -->
+        <mule.maven.plugin.version>3.8.5</mule.maven.plugin.version>
         <mule.apikit.version>1.11.0</mule.apikit.version>
     </properties>
 
     <build>
         <plugins>
-            <!-- Plugin para compilar y hacer deploy a CloudHub -->
             <plugin>
                 <groupId>org.mule.tools.maven</groupId>
                 <artifactId>mule-maven-plugin</artifactId>
                 <version>${mule.maven.plugin.version}</version>
                 <extensions>true</extensions>
                 <configuration>
-                    <!-- El runtime de Mule -->
-                    <runtimeVersion>${app.runtime}</runtimeVersion>
-                    <cloudHubDeployment>
-                        <username>${anypoint.username}</username>
-                        <password>${anypoint.password}</password>
-                        <environment>${anypoint.environment}</environment>
-                        <applicationName>${project.artifactId}</applicationName>
-                        <workerType>MICRO</workerType>
-                        <workers>1</workers>
-                        <region>us-east-1</region>
-                    </cloudHubDeployment>
+                    <classifier>mule-application</classifier>
                 </configuration>
             </plugin>
-
-            <!-- Compiler normal -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
@@ -53,15 +40,12 @@
     </build>
 
     <dependencies>
-        <!-- HTTP Connector -->
         <dependency>
             <groupId>org.mule.connectors</groupId>
             <artifactId>mule-http-connector</artifactId>
             <version>1.10.3</version>
             <classifier>mule-plugin</classifier>
         </dependency>
-        
-        <!-- APIKit -->
         <dependency>
             <groupId>org.mule.modules</groupId>
             <artifactId>mule-apikit-module</artifactId>
@@ -72,16 +56,43 @@
 
     <repositories>
         <repository>
+            <id>anypoint-exchange-v3</id>
+            <name>Anypoint Exchange</name>
+            <url>https://maven.anypoint.mulesoft.com/api/v3/maven</url>
+            <layout>default</layout>
+            <releases>
+                <enabled>true</enabled>
+            </releases>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+        </repository>
+        <repository>
             <id>mulesoft-releases</id>
             <name>MuleSoft Releases Repository</name>
             <url>https://repository.mulesoft.org/releases/</url>
+            <layout>default</layout>
+            <releases>
+                <enabled>true</enabled>
+            </releases>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
         </repository>
     </repositories>
 
     <pluginRepositories>
         <pluginRepository>
+            <id>anypoint-exchange-v3</id>
+            <name>Anypoint Exchange</name>
+            <url>https://maven.anypoint.mulesoft.com/api/v3/maven</url>
+            <layout>default</layout>
+        </pluginRepository>
+        <pluginRepository>
             <id>mulesoft-releases</id>
+            <name>MuleSoft Releases Repository</name>
             <url>https://repository.mulesoft.org/releases/</url>
+            <layout>default</layout>
         </pluginRepository>
     </pluginRepositories>
 </project>
