@@ -5,7 +5,7 @@
   "secureProperties": [],
   "supportedJavaVersions": [],
   "redeploymentEnabled": true,
-  "name": "com.mycompany:ejemplogithub:1.0.0-SNAPSHOT",
+  "name": "a7e624be-4fa2-429a-bddf-ed8a6b4b4491:ejemplogithub:1.0.0-SNAPSHOT",
   "minMuleVersion": "4.9.0",
   "requiredProduct": "MULE_EE",
   "classLoaderModelLoaderDescriptor": {
