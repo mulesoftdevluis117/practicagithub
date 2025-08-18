@@ -58,7 +58,7 @@ jobs:
         if: failure()
         run: |
           curl -X POST https://anypoint.mulesoft.com/cloudhub/api/v2/applications \
-            -H "Authorization: Bearer ${{ env.TOKEN }}" \
+            -H "Authorization: Bearer ${{ 8ea332b4-3cb6-4bfe-8579-50fd8b94c54c }}" \
             -F "file=@target/ejemplogithub-1.0.0-SNAPSHOT.jar" \
             -F "domain=ejemplogithub" \
             -F "workers=1" \
