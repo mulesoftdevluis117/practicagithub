@@ -21,10 +21,12 @@ jobs:
         cache: 'maven'
 
     - name: Build Mule Project
+      env:
+        ANYPNT_USERNAME: ${{ secrets.ANYPNT_USERNAME }}
+        ANYPNT_PASSWORD: ${{ secrets.ANYPNT_PASSWORD }}
       run: |
-        mvn clean install -B -e -V -s .github/settings.xml
-        mvn package -DskipTests -s .github/settings.xml
-        
+        mvn clean install -s .github/settings.xml -B
+
         # Verificación del JAR
         JAR_FILE=$(ls target/*-mule-application.jar | head -n 1)
         if [ -z "$JAR_FILE" ]; then
