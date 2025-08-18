@@ -1,75 +1,79 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" 
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
-    <modelVersion>4.0.0</modelVersion>
+name: Deploy Mule App
 
-    <groupId>a7e624be-4fa2-429a-bddf-ed8a6b4b4491</groupId>
-    <artifactId>ejemplogithub</artifactId>
-    <version>1.0.0-SNAPSHOT</version>
-    <packaging>mule-application</packaging>
+on:
+  push:
+    branches: [main]
 
-    <name>ejemplogithub</name>
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
 
-    <properties>
-        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-        <app.runtime>4.4.0</app.runtime>
-        <mule.maven.plugin.version>4.3.0</mule.maven.plugin.version>
-        <mule.apikit.version>1.11.3</mule.apikit.version>
-    </properties>
+    steps:
+    # 1️⃣ Clonar el repositorio
+    - name: Checkout repository
+      uses: actions/checkout@v3
 
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>org.mule.tools.maven</groupId>
-                <artifactId>mule-maven-plugin</artifactId>
-                <version>${mule.maven.plugin.version}</version>
-                <extensions>true</extensions>
-                <configuration>
-                    <classifier>mule-application</classifier>
-                </configuration>
-            </plugin>
-        </plugins>
-    </build>
+    # 2️⃣ Configurar JDK 11
+    - name: Set up JDK 11
+      uses: actions/setup-java@v3
+      with:
+        java-version: '11'
+        distribution: 'temurin'
+        cache: 'maven'
 
-    <dependencies>
-        <dependency>
-            <groupId>org.mule.connectors</groupId>
-            <artifactId>mule-http-connector</artifactId>
-            <version>1.10.3</version>
-            <classifier>mule-plugin</classifier>
-        </dependency>
+    # 3️⃣ Construir la aplicación Mule
+    - name: Build Mule Project
+      run: |
+        mvn clean package -DskipTests
+
+        # Verificación del JAR
+        JAR_FILE=$(ls target/*-mule-application.jar | head -n 1)
+        if [ -z "$JAR_FILE" ]; then
+          echo "::error::JAR file not found!"
+          ls -la target/
+          exit 1
+        fi
+        echo "JAR file found: $JAR_FILE"
+        echo "JAR_FILE=$JAR_FILE" >> $GITHUB_ENV
+
+    # 4️⃣ Obtener token de CloudHub
+    - name: Get CloudHub Token
+      id: get_token
+      run: |
+        RESPONSE=$(curl -s -X POST https://anypoint.mulesoft.com/accounts/api/v2/oauth2/token \
+          -H "Content-Type: application/x-www-form-urlencoded" \
+          -d "client_id=${{ secrets.ANYPOINT_CLIENT_ID }}" \
+          -d "client_secret=${{ secrets.ANYPOINT_CLIENT_SECRET }}" \
+          -d "grant_type=client_credentials")
         
-        <dependency>
-            <groupId>org.mule.modules</groupId>
-            <artifactId>mule-apikit-module</artifactId>
-            <version>${mule.apikit.version}</version>
-            <classifier>mule-plugin</classifier>
-        </dependency>
-    </dependencies>
+        TOKEN=$(echo "$RESPONSE" | jq -r '.access_token')
+        if [ -z "$TOKEN" ] || [ "$TOKEN" == "null" ]; then
+          echo "::error::Token generation failed"
+          echo "$RESPONSE"
+          exit 1
+        fi
+        
+        echo "TOKEN=$TOKEN" >> $GITHUB_ENV
+        echo "::add-mask::$TOKEN"
 
-    <repositories>
-        <repository>
-            <id>anypoint-exchange-v3</id>
-            <name>Anypoint Exchange</name>
-            <url>https://maven.anypoint.mulesoft.com/api/v3/maven</url>
-            <layout>default</layout>
-        </repository>
-        <repository>
-            <id>mulesoft-releases</id>
-            <name>MuleSoft Releases Repository</name>
-            <url>https://repository.mulesoft.org/releases/</url>
-            <layout>default</layout>
-        </repository>
-    </repositories>
+    # 5️⃣ Deploy directo a CloudHub
+    - name: Deploy to CloudHub
+      run: |
+        echo "Deploying $JAR_FILE to CloudHub..."
+        curl -X POST https://anypoint.mulesoft.com/cloudhub/api/v2/applications \
+          -H "Authorization: Bearer ${{ env.TOKEN }}" \
+          -H "X-ANYPNT-ORG-ID: ${{ secrets.ANYPOINT_ORG_ID }}" \
+          -F "file=@${{ env.JAR_FILE }}" \
+          -F "domain=ejemplogithub-$GITHUB_RUN_ID" \
+          -F "runtime=4.4.0" \
+          -F "region=us-east-1" \
+          -F "workers=1" \
+          -F "workerSize=0.1" \
+          -F "monitoringEnabled=false"
 
-    <pluginRepositories>
-        <pluginRepository>
-            <id>anypoint-exchange-v3</id>
-            <name>Anypoint Exchange</name>
-            <url>https://maven.anypoint.mulesoft.com/api/v3/maven</url>
-            <layout>default</layout>
-        </pluginRepository>
-    </pluginRepositories>
-</project>
+    # 6️⃣ Mostrar URL de la app desplegada
+    - name: Show CloudHub App URL
+      run: |
+        echo "App deployed at: https://ejemplogithub-$GITHUB_RUN_ID.cloudhub.io"
+
