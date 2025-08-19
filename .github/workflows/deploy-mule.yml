@@ -21,7 +21,6 @@ jobs:
         ANYPNT_PASSWORD: ${{ secrets.ANYPNT_PASSWORD }}
       run: |
         mvn clean install -s .github/settings.xml -B
-        # Verificación del JAR
         JAR_FILE=$(ls target/*-mule-application.jar | head -n 1)
         if [ -z "$JAR_FILE" ]; then
           echo "::error::JAR file not found!"
@@ -30,43 +29,74 @@ jobs:
         fi
         echo "JAR file found: $JAR_FILE"
         echo "JAR_FILE=$JAR_FILE" >> $GITHUB_ENV
+    - name: Debug Credentials
+      run: |
+        echo "Checking credentials format..."
+        echo "Client ID length: ${#ANYPOINT_CLIENT_ID}"
+        echo "Client Secret length: ${#ANYPOINT_CLIENT_SECRET}"
+        echo "Org ID length: ${#ANYPOINT_ORG_ID}"
+        if [ -z "$ANYPOINT_CLIENT_ID" ]; then
+          echo "::error::ANYPOINT_CLIENT_ID is empty!"
+        fi
+        if [ -z "$ANYPOINT_CLIENT_SECRET" ]; then
+          echo "::error::ANYPOINT_CLIENT_SECRET is empty!"
+        fi
+        if [ -z "$ANYPOINT_ORG_ID" ]; then
+          echo "::error::ANYPOINT_ORG_ID is empty!"
+        fi
+      env:
+        ANYPOINT_CLIENT_ID: ${{ secrets.ANYPOINT_CLIENT_ID }}
+        ANYPOINT_CLIENT_SECRET: ${{ secrets.ANYPOINT_CLIENT_SECRET }}
+        ANYPOINT_ORG_ID: ${{ secrets.ANYPOINT_ORG_ID }}
     - name: Get CloudHub Token
       id: get_token
       run: |
-        echo "Requesting token from Anypoint..."
-        RESPONSE=$(curl -s -X POST https://anypoint.mulesoft.com/accounts/api/v2/oauth2/token \
+        echo "Requesting token from Anypoint Platform..."
+        
+        # Test different API endpoints
+        echo "Testing token endpoint..."
+        RESPONSE=$(curl -w "\nHTTP_CODE:%{http_code}" -s -X POST https://anypoint.mulesoft.com/accounts/api/v2/oauth2/token \
           -H "Content-Type: application/x-www-form-urlencoded" \
           -d "client_id=${{ secrets.ANYPOINT_CLIENT_ID }}" \
           -d "client_secret=${{ secrets.ANYPOINT_CLIENT_SECRET }}" \
           -d "grant_type=client_credentials")
         
-        echo "Raw response:"
-        echo "$RESPONSE"
+        HTTP_CODE=$(echo "$RESPONSE" | grep "HTTP_CODE:" | cut -d: -f2)
+        RESPONSE_BODY=$(echo "$RESPONSE" | grep -v "HTTP_CODE:")
         
-        # Verificar si la respuesta contiene error
-        if echo "$RESPONSE" | grep -q "error"; then
-          echo "::error::Authentication failed"
-          echo "$RESPONSE"
+        echo "HTTP Status Code: $HTTP_CODE"
+        echo "Response Body: $RESPONSE_BODY"
+        
+        # Check HTTP status
+        if [ "$HTTP_CODE" != "200" ]; then
+          echo "::error::HTTP request failed with status: $HTTP_CODE"
+          echo "Response: $RESPONSE_BODY"
+          
+          # Try alternative endpoint
+          echo "Trying alternative endpoint..."
+          ALT_RESPONSE=$(curl -w "\nHTTP_CODE:%{http_code}" -s -X POST https://anypoint.mulesoft.com/accounts/login \
+            -H "Content-Type: application/json" \
+            -d "{\"username\":\"${{ secrets.ANYPNT_USERNAME}}\",\"password\":\"${{ secrets.ANYPNT_PASSWORD}}\"}")
+          
+          echo "Alternative response: $ALT_RESPONSE"
           exit 1
         fi
         
-        # Verificar si jq está disponible y la respuesta es JSON válido
-        if ! echo "$RESPONSE" | jq . > /dev/null 2>&1; then
-          echo "::error::Invalid JSON response or jq not available"
-          echo "Response: $RESPONSE"
-          exit 1
-        fi
+        # Parse token
+        TOKEN=$(echo "$RESPONSE_BODY" | jq -r '.access_token' 2>/dev/null)
         
-        TOKEN=$(echo "$RESPONSE" | jq -r '.access_token')
         if [ -z "$TOKEN" ] || [ "$TOKEN" == "null" ]; then
-          echo "::error::Token extraction failed"
-          echo "Response: $RESPONSE"
+          echo "::error::Failed to extract token"
+          echo "Raw response: $RESPONSE_BODY"
           exit 1
         fi
         
         echo "TOKEN=$TOKEN" >> $GITHUB_ENV
         echo "::add-mask::$TOKEN"
-        echo "Token obtained successfully"
+        echo "Token obtained successfully!"
+      env:
+        ANYPOINT_CLIENT_ID: ${{ secrets.ANYPOINT_CLIENT_ID }}
+        ANYPOINT_CLIENT_SECRET: ${{ secrets.ANYPOINT_CLIENT_SECRET }}
     - name: Deploy to CloudHub
       run: |
         echo "Deploying $JAR_FILE to CloudHub..."
