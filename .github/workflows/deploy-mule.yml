@@ -39,8 +39,8 @@ jobs:
         echo "Client Secret length: ${#ANYPOINT_CLIENT_SECRET}"
         echo "Org ID length: ${#ANYPOINT_ORG_ID}"
       env:
-        ANYPOINT_CLIENT_ID: "20b0fba63e64482a936176816c76c6ed"
-        ANYPOINT_CLIENT_SECRET: "123E2Dbb52c94C718c2B1b60c2a87a7A"
+        ANYPOINT_CLIENT_ID: "d3e505c6a299430ebadefd5616c0effb"
+        ANYPOINT_CLIENT_SECRET: "Ead9e06Dd6984d508Ad6D8a09D41456A"
         ANYPOINT_ORG_ID: "a7e624be-4fa2-429a-bddf-ed8a6b4b4491"
 
     - name: Get CloudHub Token
@@ -77,8 +77,8 @@ jobs:
         echo "::add-mask::$TOKEN"
         echo "Token obtained successfully!"
       env:
-        ANYPOINT_CLIENT_ID: "20b0fba63e64482a936176816c76c6ed"
-        ANYPOINT_CLIENT_SECRET: "123E2Dbb52c94C718c2B1b60c2a87a7A"
+        ANYPOINT_CLIENT_ID: "d3e505c6a299430ebadefd5616c0effb"
+        ANYPOINT_CLIENT_SECRET: "Ead9e06Dd6984d508Ad6D8a09D41456A"
 
     - name: Deploy to CloudHub
       run: |
