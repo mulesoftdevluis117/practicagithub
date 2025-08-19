@@ -1,32 +1,26 @@
 name: Deploy Mule App
-
 on:
   push:
     branches: [main]
-
 jobs:
   deploy:
     runs-on: ubuntu-latest
     timeout-minutes: 20
-
     steps:
     - name: Checkout repository
       uses: actions/checkout@v3
-
     - name: Set up JDK 11
       uses: actions/setup-java@v3
       with:
         java-version: '11'
         distribution: 'temurin'
         cache: 'maven'
-
     - name: Build Mule Project
       env:
         ANYPNT_USERNAME: ${{ secrets.ANYPNT_USERNAME }}
         ANYPNT_PASSWORD: ${{ secrets.ANYPNT_PASSWORD }}
       run: |
         mvn clean install -s .github/settings.xml -B
-
         # Verificación del JAR
         JAR_FILE=$(ls target/*-mule-application.jar | head -n 1)
         if [ -z "$JAR_FILE" ]; then
@@ -36,26 +30,43 @@ jobs:
         fi
         echo "JAR file found: $JAR_FILE"
         echo "JAR_FILE=$JAR_FILE" >> $GITHUB_ENV
-
     - name: Get CloudHub Token
       id: get_token
       run: |
+        echo "Requesting token from Anypoint..."
         RESPONSE=$(curl -s -X POST https://anypoint.mulesoft.com/accounts/api/v2/oauth2/token \
           -H "Content-Type: application/x-www-form-urlencoded" \
           -d "client_id=${{ secrets.ANYPOINT_CLIENT_ID }}" \
           -d "client_secret=${{ secrets.ANYPOINT_CLIENT_SECRET }}" \
           -d "grant_type=client_credentials")
         
+        echo "Raw response:"
+        echo "$RESPONSE"
+        
+        # Verificar si la respuesta contiene error
+        if echo "$RESPONSE" | grep -q "error"; then
+          echo "::error::Authentication failed"
+          echo "$RESPONSE"
+          exit 1
+        fi
+        
+        # Verificar si jq está disponible y la respuesta es JSON válido
+        if ! echo "$RESPONSE" | jq . > /dev/null 2>&1; then
+          echo "::error::Invalid JSON response or jq not available"
+          echo "Response: $RESPONSE"
+          exit 1
+        fi
+        
         TOKEN=$(echo "$RESPONSE" | jq -r '.access_token')
         if [ -z "$TOKEN" ] || [ "$TOKEN" == "null" ]; then
-          echo "::error::Token generation failed"
-          echo "$RESPONSE"
+          echo "::error::Token extraction failed"
+          echo "Response: $RESPONSE"
           exit 1
         fi
         
         echo "TOKEN=$TOKEN" >> $GITHUB_ENV
         echo "::add-mask::$TOKEN"
-
+        echo "Token obtained successfully"
     - name: Deploy to CloudHub
       run: |
         echo "Deploying $JAR_FILE to CloudHub..."
@@ -69,7 +80,6 @@ jobs:
           -F "workers=1" \
           -F "workerSize=0.1" \
           -F "monitoringEnabled=false"
-
     - name: Show CloudHub App URL
       run: |
         echo "App deployed at: https://ejemplogithub-$GITHUB_RUN_ID.cloudhub.io"
