@@ -1,4 +1,4 @@
-name: Deploy Mule App 
+name: Deploy Mule App
 on:
   push:
     branches: [main]
