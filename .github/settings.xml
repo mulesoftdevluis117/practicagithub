@@ -1,17 +1,50 @@
-<settings>
-  <servers>
-    <server>
-      <id>anypoint-exchange-v3</id>
-      <username>${env.ANYPNT_USERNAME}</username>
-      <password>${env.ANYPNT_PASSWORD}</password>
-    </server>
-  </servers>
-
-  <mirrors>
-    <mirror>
-      <id>anypoint-exchange-v3</id>
-      <mirrorOf>*</mirrorOf>
-      <url>https://maven.anypoint.mulesoft.com/api/v3/maven</url>
-    </mirror>
-  </mirrors>
+<?xml version="1.0" encoding="UTF-8"?>
+<settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0 
+          https://maven.apache.org/xsd/settings-1.0.0.xsd">
+    
+    <servers>
+        <server>
+            <id>anypoint-exchange-v3</id>
+            <username>${env.ANYPNT_USERNAME}</username>
+            <password>${env.ANYPNT_PASSWORD}</password>
+        </server>
+        <server>
+            <id>mulesoft-releases</id>
+            <username>${env.ANYPNT_USERNAME}</username>
+            <password>${env.ANYPNT_PASSWORD}</password>
+        </server>
+    </servers>
+    
+    <profiles>
+        <profile>
+            <id>anypoint-exchange</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
+            <repositories>
+                <repository>
+                    <id>anypoint-exchange-v3</id>
+                    <name>Anypoint Exchange</name>
+                    <url>https://maven.anypoint.mulesoft.com/api/v3/maven</url>
+                    <layout>default</layout>
+                    <releases>
+                        <enabled>true</enabled>
+                    </releases>
+                    <snapshots>
+                        <enabled>false</enabled>
+                    </snapshots>
+                </repository>
+            </repositories>
+            <pluginRepositories>
+                <pluginRepository>
+                    <id>anypoint-exchange-v3</id>
+                    <name>Anypoint Exchange</name>
+                    <url>https://maven.anypoint.mulesoft.com/api/v3/maven</url>
+                    <layout>default</layout>
+                </pluginRepository>
+            </pluginRepositories>
+        </profile>
+    </profiles>
 </settings>
