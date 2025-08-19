@@ -1,24 +1,26 @@
-name: Deploy Mule App 
+name: Deploy Mule App
+
 on:
   push:
     branches: [main]
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+
     steps:
     - name: Checkout repository
       uses: actions/checkout@v3
+
     - name: Set up JDK 11
       uses: actions/setup-java@v3
       with:
         java-version: '11'
         distribution: 'temurin'
         cache: 'maven'
+
     - name: Build Mule Project
-      env:
-        ANYPNT_USERNAME: ${{ secrets.ANYPNT_USERNAME }}
-        ANYPNT_PASSWORD: ${{ secrets.ANYPNT_PASSWORD }}
       run: |
         mvn clean install -s .github/settings.xml -B
         JAR_FILE=$(ls target/*-mule-application.jar | head -n 1)
@@ -29,80 +31,61 @@ jobs:
         fi
         echo "JAR file found: $JAR_FILE"
         echo "JAR_FILE=$JAR_FILE" >> $GITHUB_ENV
+
     - name: Debug Credentials
       run: |
         echo "Checking credentials format..."
         echo "Client ID length: ${#ANYPOINT_CLIENT_ID}"
         echo "Client Secret length: ${#ANYPOINT_CLIENT_SECRET}"
         echo "Org ID length: ${#ANYPOINT_ORG_ID}"
-        if [ -z "$ANYPOINT_CLIENT_ID" ]; then
-          echo "::error::ANYPOINT_CLIENT_ID is empty!"
-        fi
-        if [ -z "$ANYPOINT_CLIENT_SECRET" ]; then
-          echo "::error::ANYPOINT_CLIENT_SECRET is empty!"
-        fi
-        if [ -z "$ANYPOINT_ORG_ID" ]; then
-          echo "::error::ANYPOINT_ORG_ID is empty!"
-        fi
       env:
-        ANYPOINT_CLIENT_ID: ${{ secrets.ANYPOINT_CLIENT_ID }}
-        ANYPOINT_CLIENT_SECRET: ${{ secrets.ANYPOINT_CLIENT_SECRET }}
-        ANYPOINT_ORG_ID: ${{ secrets.ANYPOINT_ORG_ID }}
+        ANYPOINT_CLIENT_ID: "20b0fba63e64482a936176816c76c6ed"
+        ANYPOINT_CLIENT_SECRET: "123E2Dbb52c94C718c2B1b60c2a87a7A"
+        ANYPOINT_ORG_ID: "a7e624be-4fa2-429a-bddf-ed8a6b4b4491"
+
     - name: Get CloudHub Token
       id: get_token
       run: |
         echo "Requesting token from Anypoint Platform..."
-        
-        # Test different API endpoints
-        echo "Testing token endpoint..."
+
         RESPONSE=$(curl -w "\nHTTP_CODE:%{http_code}" -s -X POST https://anypoint.mulesoft.com/accounts/api/v2/oauth2/token \
           -H "Content-Type: application/x-www-form-urlencoded" \
-          -d "client_id=${{ secrets.ANYPOINT_CLIENT_ID }}" \
-          -d "client_secret=${{ secrets.ANYPOINT_CLIENT_SECRET }}" \
+          -d "client_id=$ANYPOINT_CLIENT_ID" \
+          -d "client_secret=$ANYPOINT_CLIENT_SECRET" \
           -d "grant_type=client_credentials")
-        
+
         HTTP_CODE=$(echo "$RESPONSE" | grep "HTTP_CODE:" | cut -d: -f2)
         RESPONSE_BODY=$(echo "$RESPONSE" | grep -v "HTTP_CODE:")
-        
+
         echo "HTTP Status Code: $HTTP_CODE"
         echo "Response Body: $RESPONSE_BODY"
-        
-        # Check HTTP status
+
         if [ "$HTTP_CODE" != "200" ]; then
           echo "::error::HTTP request failed with status: $HTTP_CODE"
-          echo "Response: $RESPONSE_BODY"
-          
-          # Try alternative endpoint
-          echo "Trying alternative endpoint..."
-          ALT_RESPONSE=$(curl -w "\nHTTP_CODE:%{http_code}" -s -X POST https://anypoint.mulesoft.com/accounts/login \
-            -H "Content-Type: application/json" \
-            -d "{\"username\":\"${{ secrets.ANYPNT_USERNAME}}\",\"password\":\"${{ secrets.ANYPNT_PASSWORD}}\"}")
-          
-          echo "Alternative response: $ALT_RESPONSE"
           exit 1
         fi
-        
-        # Parse token
+
         TOKEN=$(echo "$RESPONSE_BODY" | jq -r '.access_token' 2>/dev/null)
-        
+
         if [ -z "$TOKEN" ] || [ "$TOKEN" == "null" ]; then
           echo "::error::Failed to extract token"
           echo "Raw response: $RESPONSE_BODY"
           exit 1
         fi
-        
+
         echo "TOKEN=$TOKEN" >> $GITHUB_ENV
         echo "::add-mask::$TOKEN"
         echo "Token obtained successfully!"
       env:
-        ANYPOINT_CLIENT_ID: ${{ secrets.ANYPOINT_CLIENT_ID }}
-        ANYPOINT_CLIENT_SECRET: ${{ secrets.ANYPOINT_CLIENT_SECRET }}
+        ANYPOINT_CLIENT_ID: "20b0fba63e64482a936176816c76c6ed"
+        ANYPOINT_CLIENT_SECRET: "123E2Dbb52c94C718c2B1b60c2a87a7A"
+
     - name: Deploy to CloudHub
       run: |
         echo "Deploying $JAR_FILE to CloudHub..."
         curl -X POST https://anypoint.mulesoft.com/cloudhub/api/v2/applications \
-          -H "Authorization: Bearer ${{ env.TOKEN }}" \
-          -H "X-ANYPNT-ORG-ID: ${{ secrets.ANYPOINT_ORG_ID }}" \
+          -H "Authorization: Bearer $TOKEN" \
+          -H "X-ANYPNT-ORG-ID: $ANYPOINT_ORG_ID" \
           -F "file=@${{ env.JAR_FILE }}" \
           -F "domain=ejemplogithub-$GITHUB_RUN_ID" \
           -F "runtime=4.4.0" \
@@ -110,6 +93,5 @@ jobs:
           -F "workers=1" \
           -F "workerSize=0.1" \
           -F "monitoringEnabled=false"
-    - name: Show CloudHub App URL
-      run: |
-        echo "App deployed at: https://ejemplogithub-$GITHUB_RUN_ID.cloudhub.io"
+      env:
+        ANYPOINT_ORG_ID: "a7e624be-4fa2-429a-bddf-ed8a6b4b4491"
