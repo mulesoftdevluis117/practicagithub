@@ -89,7 +89,7 @@ jobs:
           -F "file=@${{ env.JAR_FILE }}" \
           -F "domain=ejemplogithub-$GITHUB_RUN_ID" \
           -F "runtime=4.4.0" \
-          -F "region=us-east-1" \
+          -F "region=us-east-2" \
           -F "workers=1" \
           -F "workerSize=0.1" \
           -F "monitoringEnabled=false"
