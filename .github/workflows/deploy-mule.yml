@@ -78,12 +78,16 @@ jobs:
         curl -X POST https://anypoint.mulesoft.com/cloudhub/api/v2/applications \
           -H "Authorization: Bearer $TOKEN" \
           -H "X-ANYPNT-ORG-ID: $ANYPOINT_ORG_ID" \
+          -H "X-ANYPNT-ENV-ID: $ANYPOINT_ENV_ID" \
           -F "file=@${{ env.JAR_FILE }}" \
-          -F "domain=ejemplogithub-$GITHUB_RUN_ID" \
+          -F "domain=ejemplogithub" \
           -F "runtime=4.4.0" \
-          -F "region=us-east-2" \
+          -F "region=us-east-1" \
           -F "workers=1" \
           -F "workerSize=0.1" \
           -F "monitoringEnabled=false"
       env:
         ANYPOINT_ORG_ID: "a7e624be-4fa2-429a-bddf-ed8a6b4b4491"
+        ANYPOINT_ENV_ID: "cef159d8-f1f5-49d5-955e-5271a824df69
+"
+
